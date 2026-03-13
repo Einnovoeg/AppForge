@@ -1,0 +1,32 @@
+name: AppForge
+
+options:
+  minimumXcodeGenVersion: 2.38.0
+  createIntermediateGroups: true
+
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.appforge.desktop
+    PRODUCT_NAME: AppForge
+    SWIFT_VERSION: 6.0
+    MACOSX_DEPLOYMENT_TARGET: 15.0
+    SWIFT_STRICT_CONCURRENCY: complete
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: AppForge
+    INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  AppForge:
+    type: application
+    platform: macOS
+    deploymentTarget: 15.0
+    sources:
+      - path: AppForge
+    resources:
+      - path: AppForge/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.appforge.desktop
+        PRODUCT_NAME: AppForge

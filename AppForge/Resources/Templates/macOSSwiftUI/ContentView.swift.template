@@ -1,0 +1,42 @@
+import SwiftUI
+
+struct ContentView: View {
+    private let features = [
+{{FEATURES_ARRAY}}
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("{{PRODUCT_NAME}}")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+
+            Text("{{SUMMARY}}")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("What this build includes")
+                    .font(.headline)
+
+                ForEach(features, id: \.self) { feature in
+                    Label(feature, systemImage: "checkmark.circle.fill")
+                }
+            }
+
+            Text("Source prompt")
+                .font(.headline)
+                .padding(.top, 8)
+
+            Text("{{PROMPT}}")
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            Text("Updated {{UPDATED_AT}}")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(28)
+        .frame(minWidth: 760, minHeight: 520)
+    }
+}

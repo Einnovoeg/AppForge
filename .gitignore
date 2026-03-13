@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+# Xcode build output
+DerivedData/
+Build/
+*.app
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Editor and shell noise
+*.swp
+*.swo
+*~
+
+# Local verification scratch
+scratch/

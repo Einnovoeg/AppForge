@@ -102,6 +102,10 @@ struct SettingsView: View {
 
                         AppPanel(title: "Privacy & Support", subtitle: "How AppForge stores data and where to find the repo support link.") {
                             VStack(alignment: .leading, spacing: 14) {
+                                Text(AppReleaseInfo.current.releaseSummary)
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+
                                 Text("API keys are stored in the macOS Keychain, generated projects are written to ~/AppForge, and this repository keeps third-party license notices in dedicated documentation files.")
                                     .font(.system(size: 13, weight: .medium, design: .rounded))
                                     .foregroundStyle(.secondary)
@@ -166,6 +170,10 @@ struct SettingsView: View {
 
                 Text("Configure Anthropic, OpenAI, Ollama, or LM Studio. Xcode coding intelligence is still not integrated.")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+
+                Text(AppReleaseInfo.current.releaseSummary)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
             }
 

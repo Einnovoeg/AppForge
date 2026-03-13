@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0993D424AB979F1B0BA601C0 /* FileTreeNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8632197389773439E179C08 /* FileTreeNode.swift */; };
 		123D45DED55350652BA054B9 /* FilePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27B68047848C40C797822F4F /* FilePreviewView.swift */; };
+		1539D68F935ED85312D46231 /* AppReleaseInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB8BFD1C1C84AAA9770D4372 /* AppReleaseInfo.swift */; };
 		18900A2F8E766A2FB2F247AF /* BuiltInRecipeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1718B01DFA3E894A47E221B /* BuiltInRecipeService.swift */; };
 		2DE858B2ADEE494B37D52ACC /* WorkspaceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10884769A76FE53C8C75A3AF /* WorkspaceManager.swift */; };
 		3CEDC8636661BFFD7308BC55 /* ProjectScaffolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585D4F79EB3D946080295DF0 /* ProjectScaffolder.swift */; };
@@ -67,6 +68,7 @@
 		B8632197389773439E179C08 /* FileTreeNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTreeNode.swift; sourceTree = "<group>"; };
 		B8F5AF95A240D9A779E852F1 /* project.yml.template */ = {isa = PBXFileReference; path = project.yml.template; sourceTree = "<group>"; };
 		BA3C01A36B1376024B8CD050 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		BB8BFD1C1C84AAA9770D4372 /* AppReleaseInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppReleaseInfo.swift; sourceTree = "<group>"; };
 		BCC475669BA046A6CC915718 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CD5615797A21B73924071D1D /* ContentView.swift.template */ = {isa = PBXFileReference; path = ContentView.swift.template; sourceTree = "<group>"; };
 		E6CDE2AD67FA6C24315A8B84 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 			children = (
 				6E4D373C6C5C6C607E11C29E /* AIBackend.swift */,
 				2FA2484F4A243EF522A4DDD6 /* AppPlatform.swift */,
+				BB8BFD1C1C84AAA9770D4372 /* AppReleaseInfo.swift */,
 				2D1BF61176EF78A98A6DC7FC /* BuildModels.swift */,
 				B2DE8E60E85CE08DD434BBAD /* CapabilityModels.swift */,
 				67476EA254F7E5323BE67EC4 /* ChatMessage.swift */,
@@ -228,7 +231,6 @@
 				};
 			};
 			buildConfigurationList = F2E3DF70FA3DBDF06E8639C9 /* Build configuration list for PBXProject "AppForge" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -238,6 +240,7 @@
 			mainGroup = 853EE10330A5275F170D4BD0;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 4DBF82F490651001E8405415 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -271,6 +274,7 @@
 				6CA30A05899FE4BBD3A4D8F5 /* AppChrome.swift in Sources */,
 				C720FE7B9E1C528269BECD8F /* AppForgeApp.swift in Sources */,
 				CC9CDDCA3E8BF0DFD7AEC1E9 /* AppPlatform.swift in Sources */,
+				1539D68F935ED85312D46231 /* AppReleaseInfo.swift in Sources */,
 				F69256498E02ED04221F605B /* AppRootView.swift in Sources */,
 				6849226180A761A900E0F6B3 /* AppViewModel.swift in Sources */,
 				76A97AF350A564B9D0DACD9E /* AppearanceSettingsStore.swift in Sources */,
@@ -332,6 +336,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -346,8 +351,11 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = AppForge;
+				INFOPLIST_KEY_CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				INFOPLIST_KEY_CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = com.appforge.desktop;
@@ -427,6 +435,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -447,8 +456,11 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = AppForge;
+				INFOPLIST_KEY_CFBundleShortVersionString = "$(MARKETING_VERSION)";
+				INFOPLIST_KEY_CFBundleVersion = "$(CURRENT_PROJECT_VERSION)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

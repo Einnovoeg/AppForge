@@ -2,6 +2,11 @@
 
 AppForge is a native macOS SwiftUI application for generating starter Apple-platform apps from a prompt. The current open-source release focuses on a polished macOS shell, pluggable AI planning backends, and a reliable local build loop for generated macOS projects.
 
+Current release: `v0.1.0`
+
+- Release notes: [v0.1.0](https://github.com/Einnovoeg/AppForge/releases/tag/v0.1.0)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+
 The app currently supports:
 
 - Native macOS SwiftUI interface for creating and refining generated projects
@@ -41,6 +46,14 @@ The complete dependency list is in [DEPENDENCIES.md](DEPENDENCIES.md).
 
 ## Installation
 
+### GitHub Release
+
+The `v0.1.0` release is published on GitHub with versioned notes and source archives:
+
+- [AppForge Releases](https://github.com/Einnovoeg/AppForge/releases)
+
+The packaged `v0.1.0` app assets are local-release builds and are not notarized yet. For the most predictable install path today, build from source on an Apple Silicon Mac with Xcode and XcodeGen available locally.
+
 ### Run from Source
 
 1. Install Xcode and open it once so the toolchain and license are configured.
@@ -68,6 +81,10 @@ xcodebuild -project AppForge.xcodeproj -scheme AppForge -configuration Debug -de
 open ~/Library/Developer/Xcode/DerivedData/AppForge-*/Build/Products/Debug/AppForge.app
 ```
 
+## Versioning
+
+AppForge uses Semantic Versioning for tagged releases and keeps project history in [CHANGELOG.md](CHANGELOG.md). The app bundle version for `v0.1.0` is `0.1.0 (1)`.
+
 ## Using Providers
 
 AppForge currently supports four planning backends:
@@ -92,8 +109,10 @@ AppForge does not currently integrate Xcode coding intelligence.
 
 The current repository has been manually verified with:
 
+- `xcodebuild -project AppForge.xcodeproj -scheme AppForge -showBuildSettings`
 - `xcodegen generate`
 - `xcodebuild -project AppForge.xcodeproj -scheme AppForge -configuration Debug -destination 'platform=macOS,arch=arm64' build`
+- `xcodebuild -project AppForge.xcodeproj -scheme AppForge -configuration Release -destination 'platform=macOS,arch=arm64' build`
 - Launch of the built `AppForge.app`
 - Fresh generation, build, and launch of a built-in Sudoku app
 

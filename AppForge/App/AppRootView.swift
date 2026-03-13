@@ -82,6 +82,10 @@ struct AppRootView: View {
                     Text("Portable Apple-platform app builder with pluggable AI backends")
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
+
+                    Text(AppReleaseInfo.current.releaseSummary)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
                 }
             }
 

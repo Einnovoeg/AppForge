@@ -34,6 +34,15 @@ struct SidebarView: View {
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
 
+                        HStack(spacing: 10) {
+                            InfoPill(title: "xcodebuild", value: viewModel.capability.xcodebuildStatusLabel, tint: theme.glow)
+                            InfoPill(title: "XcodeGen", value: viewModel.capability.xcodegenStatusLabel, tint: theme.accentSoft)
+                        }
+
+                        Text(viewModel.capability.buildPipelineSummary)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+
                         Picker("Platform", selection: $viewModel.selectedPlatform) {
                             ForEach(AppPlatform.allCases) { platform in
                                 Text(platform.displayName).tag(platform)

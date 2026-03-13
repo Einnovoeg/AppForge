@@ -5,9 +5,13 @@ struct CapabilityDetector {
     func detect() async -> CapabilitySnapshot {
         async let xcodeSelect = ProcessRunner.run(executable: "/usr/bin/xcode-select", arguments: ["-p"])
         async let swiftVersion = ProcessRunner.run(executable: "/usr/bin/swift", arguments: ["--version"])
+        async let xcodebuild = ProcessRunner.run(executable: "/usr/bin/which", arguments: ["xcodebuild"])
+        async let xcodegen = ProcessRunner.run(executable: "/usr/bin/which", arguments: ["xcodegen"])
 
         let developerDirectory = try? await xcodeSelect
         let swift = try? await swiftVersion
+        let xcodebuildResult = try? await xcodebuild
+        let xcodegenResult = try? await xcodegen
         let resolvedDeveloperDirectory = developerDirectory?.output.trimmingCharacters(in: .whitespacesAndNewlines)
         let xcodeAppURL = xcodeAppURL(from: resolvedDeveloperDirectory)
 
@@ -24,8 +28,19 @@ struct CapabilityDetector {
             tier: tier,
             developerDirectory: resolvedDeveloperDirectory,
             swiftVersion: swift?.output.trimmingCharacters(in: .whitespacesAndNewlines),
-            xcodeVersion: xcodeAppURL.flatMap(Self.readXcodeVersion(at:))
+            xcodeVersion: xcodeAppURL.flatMap(Self.readXcodeVersion(at:)),
+            xcodebuildPath: normalizedToolPath(from: xcodebuildResult),
+            xcodegenPath: normalizedToolPath(from: xcodegenResult)
         )
+    }
+
+    private func normalizedToolPath(from result: ProcessExecutionResult?) -> String? {
+        guard let result, result.exitCode == 0 else {
+            return nil
+        }
+
+        let trimmed = result.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func xcodeAppURL(from developerDirectory: String?) -> URL? {

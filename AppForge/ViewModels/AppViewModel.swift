@@ -10,7 +10,14 @@ final class AppViewModel: ObservableObject {
     @Published var fileTree: [FileTreeNode] = []
     @Published var selectedFileURL: URL?
     @Published var selectedFileContents = ""
-    @Published var capability = CapabilitySnapshot(tier: .bundledSwiftOnly, developerDirectory: nil, swiftVersion: nil, xcodeVersion: nil)
+    @Published var capability = CapabilitySnapshot(
+        tier: .bundledSwiftOnly,
+        developerDirectory: nil,
+        swiftVersion: nil,
+        xcodeVersion: nil,
+        xcodebuildPath: nil,
+        xcodegenPath: nil
+    )
     @Published var buildLog = ""
     @Published var composeText = ""
     @Published var selectedPlatform: AppPlatform = .macOS

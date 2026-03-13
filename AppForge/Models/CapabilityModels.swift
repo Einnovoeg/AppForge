@@ -35,7 +35,30 @@ struct CapabilitySnapshot {
     let developerDirectory: String?
     let swiftVersion: String?
     let xcodeVersion: String?
+    let xcodebuildPath: String?
+    let xcodegenPath: String?
 
     var badge: String { tier.badge }
     var summary: String { tier.summary }
+
+    var xcodebuildStatusLabel: String {
+        xcodebuildPath == nil ? "Missing" : "Installed"
+    }
+
+    var xcodegenStatusLabel: String {
+        xcodegenPath == nil ? "Missing" : "Installed"
+    }
+
+    var buildPipelineSummary: String {
+        switch (xcodebuildPath != nil, xcodegenPath != nil) {
+        case (true, true):
+            return "Local macOS build pipeline is ready."
+        case (false, true):
+            return "Install Xcode and its command line tools to enable local app builds."
+        case (true, false):
+            return "Install XcodeGen to enable generated project builds."
+        case (false, false):
+            return "Install Xcode and XcodeGen to enable generated project builds."
+        }
+    }
 }

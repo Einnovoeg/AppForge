@@ -74,6 +74,32 @@ struct SettingsView: View {
                             }
                         }
 
+                        AppPanel(title: "Local Tooling", subtitle: "Build prerequisites detected on this Mac.") {
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack(spacing: 10) {
+                                    InfoPill(title: "Xcode", value: viewModel.capability.xcodeVersion ?? "Not detected", tint: selectedColorPalette.theme.accent)
+                                    InfoPill(title: "xcodebuild", value: viewModel.capability.xcodebuildStatusLabel, tint: selectedColorPalette.theme.glow)
+                                    InfoPill(title: "XcodeGen", value: viewModel.capability.xcodegenStatusLabel, tint: selectedColorPalette.theme.accentSoft)
+                                }
+
+                                Text(viewModel.capability.buildPipelineSummary)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.secondary)
+
+                                if let xcodebuildPath = viewModel.capability.xcodebuildPath {
+                                    Text("xcodebuild: \(xcodebuildPath)")
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                if let xcodegenPath = viewModel.capability.xcodegenPath {
+                                    Text("xcodegen: \(xcodegenPath)")
+                                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+
                         AppPanel(title: "Privacy & Support", subtitle: "How AppForge stores data and where to find the repo support link.") {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text("API keys are stored in the macOS Keychain, generated projects are written to ~/AppForge, and this repository keeps third-party license notices in dedicated documentation files.")

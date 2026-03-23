@@ -141,7 +141,11 @@ final class AppViewModel: ObservableObject {
 
     func selectFile(_ url: URL) {
         selectedFileURL = url
-        selectedFileContents = (try? workspaceManager.fileContents(at: url)) ?? ""
+        guard let project = selectedProject else {
+            selectedFileContents = ""
+            return
+        }
+        selectedFileContents = (try? workspaceManager.fileContents(at: url, within: project)) ?? ""
     }
 
     func rebuildSelectedProject() async {

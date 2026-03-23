@@ -14,12 +14,14 @@ enum BuildRunnerError: LocalizedError {
 /// Wraps the local XcodeGen and xcodebuild pipeline used for generated projects.
 enum BuildRunner {
     static func build(project: GeneratedProject) async throws -> BuildRunResult {
+        let workspaceSecurity = WorkspaceSecurity()
+        let projectRootURL = try workspaceSecurity.validatedProjectRootURL(project.rootURL)
         let tools = try await resolveBuildTools()
 
         let generateResult = try await ProcessRunner.run(
             executable: tools.xcodegen,
             arguments: ["generate", "--spec", "project.yml"],
-            currentDirectory: project.rootURL
+            currentDirectory: projectRootURL
         )
 
         guard generateResult.exitCode == 0 else {
@@ -41,10 +43,10 @@ enum BuildRunner {
                 "-destination", project.platform.xcodeDestination,
                 "build"
             ],
-            currentDirectory: project.rootURL
+            currentDirectory: projectRootURL
         )
 
-        let appURL = buildResult.exitCode == 0 ? builtAppURL(for: project) : nil
+        let appURL = buildResult.exitCode == 0 ? builtAppURL(for: project, projectRootURL: projectRootURL) : nil
         let output = [generateResult.output, buildResult.output]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
@@ -58,7 +60,10 @@ enum BuildRunner {
     }
 
     static func launch(project: GeneratedProject) async throws -> BuildRunResult {
-        guard let appURL = builtAppURL(for: project) else {
+        let workspaceSecurity = WorkspaceSecurity()
+        let projectRootURL = try workspaceSecurity.validatedProjectRootURL(project.rootURL)
+
+        guard let appURL = builtAppURL(for: project, projectRootURL: projectRootURL) else {
             return BuildRunResult(
                 success: false,
                 phase: .failed,
@@ -80,9 +85,10 @@ enum BuildRunner {
         )
     }
 
-    private static func builtAppURL(for project: GeneratedProject) -> URL? {
+    private static func builtAppURL(for project: GeneratedProject, projectRootURL: URL) -> URL? {
+        let workspaceSecurity = WorkspaceSecurity()
         let fileManager = FileManager.default
-        let debugProductsURL = project.derivedDataURL.appendingPathComponent("Build/Products/Debug", isDirectory: true)
+        let debugProductsURL = projectRootURL.appendingPathComponent("Build/DerivedData/Build/Products/Debug", isDirectory: true)
         guard let products = try? fileManager.contentsOfDirectory(
             at: debugProductsURL,
             includingPropertiesForKeys: nil,
@@ -91,7 +97,12 @@ enum BuildRunner {
             return nil
         }
 
-        return products.first(where: { $0.pathExtension == "app" })
+        return products.first(where: { candidate in
+            guard candidate.pathExtension == "app" else {
+                return false
+            }
+            return workspaceSecurity.isDescendant(candidate, of: projectRootURL)
+        })
     }
 
     private static func resolveBuildTools() async throws -> (xcodegen: String, xcodebuild: String) {

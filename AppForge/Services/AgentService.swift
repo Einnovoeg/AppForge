@@ -12,6 +12,8 @@ enum AgentServiceError: LocalizedError {
     case invalidResponse
     case unsupportedProvider
     case httpFailure(statusCode: Int, responseBody: String)
+    case invalidModelName
+    case responseTooLarge(maxBytes: Int)
 
     var errorDescription: String? {
         switch self {
@@ -26,12 +28,18 @@ enum AgentServiceError: LocalizedError {
                 return "The selected provider returned HTTP \(statusCode)."
             }
             return "The selected provider returned HTTP \(statusCode): \(responseBody)"
+        case .invalidModelName:
+            return "The selected model name contains unsupported characters."
+        case .responseTooLarge(let maxBytes):
+            return "The provider returned too much data. Limit: \(maxBytes) bytes."
         }
     }
 }
 
 /// Handles provider readiness checks, model discovery, and compact planning requests.
 struct AgentService {
+    private static let maxResponseBytes = 1_048_576
+
     func hasAPIKey(for provider: AIProviderKind) -> Bool {
         guard provider.keychainAccountName != nil else {
             return false
@@ -54,11 +62,11 @@ struct AgentService {
                     detail: "Set the local server URL for \(provider.displayName)."
                 )
             }
-            guard normalizedRootURLString(endpoint) != nil else {
+            guard normalizedLocalRootURL(endpoint) != nil else {
                 return AIProviderStatus(
                     configuration: configuration,
                     isReady: false,
-                    detail: "The server URL for \(provider.displayName) is invalid."
+                    detail: "The server URL for \(provider.displayName) must be an http(s) loopback address such as http://127.0.0.1:11434."
                 )
             }
         }
@@ -68,6 +76,14 @@ struct AgentService {
                 configuration: configuration,
                 isReady: false,
                 detail: "Choose a model for \(provider.displayName) before planning."
+            )
+        }
+
+        guard isValidModelName(configuration.trimmedModelName) else {
+            return AIProviderStatus(
+                configuration: configuration,
+                isReady: false,
+                detail: "The model name contains unsupported characters. Use letters, numbers, '.', '-', '_', ':', or '/'."
             )
         }
 
@@ -181,7 +197,7 @@ struct AgentService {
             return configuration.kind.suggestedModels
         case .ollama:
             guard let endpoint = configuration.trimmedEndpointURLString,
-                  let url = makeURL(root: endpoint, path: "/api/tags") else {
+                  let url = makeURL(root: endpoint, path: "/api/tags", requireLoopback: true) else {
                 throw AgentServiceError.providerNotReady("Enter a valid Ollama server URL before fetching models.")
             }
 
@@ -192,7 +208,7 @@ struct AgentService {
                 .sorted()
         case .lmStudio:
             guard let endpoint = configuration.trimmedEndpointURLString,
-                  let url = makeURL(root: endpoint, path: "/v1/models") else {
+                  let url = makeURL(root: endpoint, path: "/v1/models", requireLoopback: true) else {
                 throw AgentServiceError.providerNotReady("Enter a valid LM Studio server URL before fetching models.")
             }
 
@@ -214,6 +230,9 @@ struct AgentService {
             guard let apiKey = storedAPIKey(for: .openAI), !apiKey.isEmpty else {
                 throw AgentServiceError.providerNotReady("OpenAI requires an API key.")
             }
+            guard isValidModelName(configuration.trimmedModelName) else {
+                throw AgentServiceError.invalidModelName
+            }
 
             return try await requestOpenAICompatibleBlueprint(
                 rootURLString: "https://api.openai.com",
@@ -226,6 +245,9 @@ struct AgentService {
             guard let apiKey = storedAPIKey(for: .anthropic), !apiKey.isEmpty else {
                 throw AgentServiceError.providerNotReady("Anthropic requires an API key.")
             }
+            guard isValidModelName(configuration.trimmedModelName) else {
+                throw AgentServiceError.invalidModelName
+            }
 
             return try await requestAnthropicBlueprint(
                 apiKey: apiKey,
@@ -237,13 +259,20 @@ struct AgentService {
             guard let endpoint = configuration.trimmedEndpointURLString else {
                 throw AgentServiceError.providerNotReady("A local server URL is required.")
             }
+            guard normalizedLocalRootURL(endpoint) != nil else {
+                throw AgentServiceError.providerNotReady("Local model servers must use an http(s) loopback address.")
+            }
+            guard isValidModelName(configuration.trimmedModelName) else {
+                throw AgentServiceError.invalidModelName
+            }
 
             return try await requestOpenAICompatibleBlueprint(
                 rootURLString: endpoint,
                 apiKey: configuration.kind == .ollama ? "ollama" : nil,
                 modelName: configuration.trimmedModelName,
                 systemPrompt: systemPrompt,
-                userPrompt: userPrompt
+                userPrompt: userPrompt,
+                requireLoopback: true
             )
         }
     }
@@ -289,9 +318,10 @@ struct AgentService {
         apiKey: String?,
         modelName: String,
         systemPrompt: String,
-        userPrompt: String
+        userPrompt: String,
+        requireLoopback: Bool = false
     ) async throws -> AgentBlueprint {
-        guard let url = makeURL(root: rootURLString, path: "/v1/chat/completions") else {
+        guard let url = makeURL(root: rootURLString, path: "/v1/chat/completions", requireLoopback: requireLoopback) else {
             throw AgentServiceError.providerNotReady("The configured server URL is invalid.")
         }
 
@@ -337,9 +367,10 @@ struct AgentService {
         let features = decoded.features
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+            .map { String($0.prefix(120)) }
 
         let appName = Self.sanitizeProjectName(decoded.appName)
-        let summary = decoded.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        let summary = String(decoded.summary.trimmingCharacters(in: .whitespacesAndNewlines).prefix(280))
 
         guard !appName.isEmpty, !summary.isEmpty, !features.isEmpty else {
             throw AgentServiceError.invalidResponse
@@ -361,13 +392,20 @@ struct AgentService {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.httpBody = body
+        request.timeoutInterval = 30
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.httpShouldHandleCookies = false
         for (header, value) in headers {
             request.setValue(value, forHTTPHeaderField: header)
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await Self.urlSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw AgentServiceError.invalidResponse
+        }
+
+        guard data.count <= Self.maxResponseBytes else {
+            throw AgentServiceError.responseTooLarge(maxBytes: Self.maxResponseBytes)
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
@@ -390,31 +428,72 @@ struct AgentService {
         }
     }
 
-    private func makeURL(root: String, path: String) -> URL? {
-        guard let normalizedRoot = normalizedRootURLString(root) else {
+    private func makeURL(root: String, path: String, requireLoopback: Bool) -> URL? {
+        let rootURL = requireLoopback ? normalizedLocalRootURL(root) : normalizedRootURL(root)
+        guard let rootURL else {
             return nil
         }
-        return URL(string: normalizedRoot + path)
+
+        var components = URLComponents(url: rootURL, resolvingAgainstBaseURL: false)
+        components?.path = path
+        return components?.url
     }
 
-    private func normalizedRootURLString(_ value: String) -> String? {
+    private func normalizedRootURL(_ value: String) -> URL? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return nil
         }
 
-        var normalized = trimmed
-        if normalized.hasSuffix("/") {
-            normalized.removeLast()
-        }
-        if normalized.hasSuffix("/v1") {
-            normalized.removeLast(3)
-        }
-
-        guard URL(string: normalized) != nil else {
+        guard var components = URLComponents(string: trimmed) else {
             return nil
         }
-        return normalized
+
+        guard let scheme = components.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              components.user == nil,
+              components.password == nil,
+              components.host != nil else {
+            return nil
+        }
+
+        if !(components.path.isEmpty || components.path == "/" || components.path == "/v1") {
+            return nil
+        }
+
+        components.path = ""
+        components.query = nil
+        components.fragment = nil
+        return components.url
+    }
+
+    private func normalizedLocalRootURL(_ value: String) -> URL? {
+        guard let rootURL = normalizedRootURL(value),
+              let host = rootURL.host?.lowercased() else {
+            return nil
+        }
+
+        let allowedHosts: Set<String> = [
+            "localhost",
+            "127.0.0.1",
+            "::1"
+        ]
+
+        guard allowedHosts.contains(host) else {
+            return nil
+        }
+
+        return rootURL
+    }
+
+    private func isValidModelName(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= 128 else {
+            return false
+        }
+
+        let allowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:/")
+        return trimmed.unicodeScalars.allSatisfy { allowedCharacters.contains($0) }
     }
 
     private static func extractJSON(from text: String) -> String {
@@ -439,12 +518,26 @@ struct AgentService {
             return "GeneratedApp"
         }
 
-        if let first = filtered.first, first.isNumber {
-            return "App\(filtered)"
+        let bounded = String(filtered.prefix(40))
+
+        if let first = bounded.first, first.isNumber {
+            return "App\(bounded)"
         }
 
-        return filtered
+        return bounded
     }
+
+    private static let urlSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 60
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        configuration.urlCache = nil
+        configuration.waitsForConnectivity = false
+        return URLSession(configuration: configuration)
+    }()
 }
 
 private struct AnthropicRequest: Encodable {

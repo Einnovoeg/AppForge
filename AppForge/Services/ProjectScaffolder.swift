@@ -15,6 +15,7 @@ enum ProjectScaffolderError: LocalizedError {
 /// Writes generated project files for either generic shells or built-in recipes like Sudoku.
 struct ProjectScaffolder {
     private let fileManager = FileManager.default
+    private let workspaceSecurity = WorkspaceSecurity()
 
     func createProject(
         from blueprint: AgentBlueprint,
@@ -30,7 +31,12 @@ struct ProjectScaffolder {
 
         let projectName = sanitizeProjectName(blueprint.appName)
         let projectRoot = workspaceManager.makeProjectRoot(for: projectName)
-        try fileManager.createDirectory(at: projectRoot, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(
+            at: projectRoot,
+            withIntermediateDirectories: true,
+            attributes: workspaceSecurity.secureDirectoryAttributes
+        )
+        try workspaceSecurity.applySecureDirectoryPermissions(to: projectRoot)
 
         let spec = GeneratedProjectSpec(
             name: projectName,
@@ -53,6 +59,8 @@ struct ProjectScaffolder {
         with blueprint: AgentBlueprint,
         prompt: String
     ) throws -> GeneratedProject {
+        _ = try workspaceSecurity.validatedProjectRootURL(project.rootURL)
+
         var updatedSpec = project.spec
         updatedSpec.summary = blueprint.summary
         updatedSpec.features = blueprint.features
@@ -68,7 +76,12 @@ struct ProjectScaffolder {
             .appendingPathComponent("Sources", isDirectory: true)
             .appendingPathComponent(spec.name, isDirectory: true)
 
-        try fileManager.createDirectory(at: sourceDirectory, withIntermediateDirectories: true, attributes: nil)
+        try fileManager.createDirectory(
+            at: sourceDirectory,
+            withIntermediateDirectories: true,
+            attributes: workspaceSecurity.secureDirectoryAttributes
+        )
+        try workspaceSecurity.applySecureDirectoryPermissions(to: sourceDirectory)
 
         let recipe = BuiltInRecipeKind.detect(
             prompt: spec.prompt,
@@ -271,11 +284,13 @@ struct ProjectScaffolder {
             return "GeneratedApp"
         }
 
-        if let first = filtered.first, first.isNumber {
-            return "App\(filtered)"
+        let bounded = String(filtered.prefix(40))
+
+        if let first = bounded.first, first.isNumber {
+            return "App\(bounded)"
         }
 
-        return filtered
+        return bounded
     }
 
     private func markdownFeatureList(_ features: [String]) -> String {

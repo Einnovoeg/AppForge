@@ -39,7 +39,7 @@ enum ProcessRunner {
                 process.executableURL = executableURL
                 process.arguments = arguments
                 process.currentDirectoryURL = currentDirectory
-                process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+                process.environment = safeBaseEnvironment().merging(environment) { _, new in new }
                 process.standardOutput = pipe
                 process.standardError = pipe
 
@@ -72,6 +72,31 @@ enum ProcessRunner {
                     continuation.resume(throwing: error)
                 }
             }
+        }
+    }
+
+    /// Avoid leaking arbitrary parent-process environment variables into build tools.
+    private static func safeBaseEnvironment() -> [String: String] {
+        let inherited = ProcessInfo.processInfo.environment
+        let allowedKeys: Set<String> = [
+            "HOME",
+            "LOGNAME",
+            "PATH",
+            "SHELL",
+            "TMPDIR",
+            "USER",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE",
+            "DEVELOPER_DIR",
+            "TERM",
+            "TERM_PROGRAM",
+            "__CF_USER_TEXT_ENCODING"
+        ]
+
+        return inherited.reduce(into: [:]) { result, pair in
+            guard allowedKeys.contains(pair.key) else { return }
+            result[pair.key] = pair.value
         }
     }
 }

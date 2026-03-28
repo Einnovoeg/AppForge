@@ -61,6 +61,7 @@ struct InspectorView: View {
                 Button("Reveal in Finder") {
                     viewModel.revealSelectedProject()
                 }
+                .help("Open the selected generated project in Finder.")
                 .buttonStyle(AppActionButtonStyle(emphasized: false))
             }
         }

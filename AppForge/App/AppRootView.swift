@@ -37,7 +37,7 @@ struct AppRootView: View {
         }
         .sheet(isPresented: $viewModel.isShowingSettings) {
             SettingsView(viewModel: viewModel)
-                .frame(width: 680, height: 560)
+                .frame(width: 760, height: 680)
         }
         .alert("AppForge", isPresented: errorBinding) {
             Button("OK", role: .cancel) {}
@@ -94,8 +94,8 @@ struct AppRootView: View {
             HStack(spacing: 10) {
                 InfoPill(title: "Capability", value: viewModel.capability.badge, tint: theme.accent)
                     .frame(width: 132)
-                InfoPill(title: "Provider", value: viewModel.aiProviderStatus.providerLabel, tint: theme.glow)
-                    .frame(width: 132)
+                InfoPill(title: "AI", value: viewModel.aiRoutingStatus.badge, tint: theme.glow)
+                    .frame(width: 168)
                 InfoPill(title: "Build", value: viewModel.buildPhase.label, tint: theme.accentSoft)
                     .frame(width: 150)
                 InfoPill(title: "Project", value: viewModel.selectedProjectName, tint: theme.accent)
@@ -106,6 +106,7 @@ struct AppRootView: View {
                 Button("New Session") {
                     viewModel.createNewProjectSession()
                 }
+                .help("Clear the current context and start describing a new app.")
                 .buttonStyle(AppActionButtonStyle(emphasized: false))
 
                 Button("Build") {
@@ -113,6 +114,7 @@ struct AppRootView: View {
                         await viewModel.rebuildSelectedProject()
                     }
                 }
+                .help("Build the currently selected generated project.")
                 .buttonStyle(AppActionButtonStyle(emphasized: false))
                 .disabled(viewModel.selectedProject == nil || viewModel.isBusy)
 
@@ -121,12 +123,14 @@ struct AppRootView: View {
                         await viewModel.launchSelectedProject()
                     }
                 }
+                .help("Launch the currently selected generated project after it builds.")
                 .buttonStyle(AppActionButtonStyle(emphasized: true))
                 .disabled(viewModel.selectedProject == nil || viewModel.isBusy)
 
                 Button("Settings") {
                     viewModel.isShowingSettings = true
                 }
+                .help("Open appearance, provider, and routing settings.")
                 .buttonStyle(AppActionButtonStyle(emphasized: false))
             }
         }

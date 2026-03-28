@@ -16,6 +16,7 @@ struct SidebarView: View {
                         Button("Configure") {
                             viewModel.isShowingSettings = true
                         }
+                        .help("Open AI routing, local model, and appearance settings.")
                         .buttonStyle(AppActionButtonStyle(emphasized: false))
                     )
                 ) {
@@ -26,13 +27,24 @@ struct SidebarView: View {
                         }
 
                         HStack(spacing: 10) {
-                            InfoPill(title: "Provider", value: viewModel.aiProviderStatus.providerLabel, tint: theme.accentSoft)
-                            InfoPill(title: "Network", value: viewModel.aiProviderStatus.networkLabel, tint: theme.accent)
+                            InfoPill(title: "Mode", value: viewModel.aiRoutingStatus.modeLabel, tint: theme.accentSoft)
+                            InfoPill(title: "Network", value: viewModel.aiRoutingStatus.networkLabel, tint: theme.accent)
                         }
 
-                        Text(viewModel.aiProviderStatus.detail)
+                        HStack(spacing: 10) {
+                            InfoPill(title: "Lead", value: viewModel.aiRoutingStatus.leadProviderLabel, tint: theme.glow)
+                            InfoPill(title: "Models", value: viewModel.aiRoutingStatus.modelLabel, tint: theme.accent)
+                        }
+
+                        Text(viewModel.aiRoutingStatus.detail)
                             .font(.system(size: 13, weight: .medium, design: .rounded))
                             .foregroundStyle(.secondary)
+
+                        if !viewModel.aiRoutingStatus.providerStatuses.isEmpty {
+                            Text(viewModel.aiRoutingStatus.modelSummary)
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundStyle(.secondary)
+                        }
 
                         HStack(spacing: 10) {
                             InfoPill(title: "xcodebuild", value: viewModel.capability.xcodebuildStatusLabel, tint: theme.glow)
@@ -48,6 +60,7 @@ struct SidebarView: View {
                                 Text(platform.displayName).tag(platform)
                             }
                         }
+                        .help("Choose which Apple platform AppForge should target for the next prompt.")
                         .pickerStyle(.menu)
 
                         Text(viewModel.xcodeCodingStatusSummary)
@@ -107,12 +120,14 @@ struct SidebarView: View {
                             Button("Reveal Workspace") {
                                 viewModel.revealWorkspace()
                             }
+                            .help("Open the portable AppForge workspace in Finder.")
                             .buttonStyle(AppActionButtonStyle(emphasized: false))
 
                             Button("Buy Me a Coffee") {
                                 guard let url = URL(string: "https://buymeacoffee.com/einnovoeg") else { return }
                                 openURL(url)
                             }
+                            .help("Open the project support page in your browser.")
                             .buttonStyle(AppActionButtonStyle(emphasized: true))
                         }
                     }
@@ -191,6 +206,7 @@ private struct ProjectTile: View {
                     .strokeBorder(borderColor, lineWidth: isSelected ? 1.4 : 1)
             }
         }
+        .help("Load \(project.name) into the inspector and file preview panes.")
         .buttonStyle(.plain)
     }
 
@@ -257,6 +273,7 @@ private struct FileTreeRow: View {
                 .padding(.vertical, 8)
                 .background(rowBackground, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .help("Preview \(node.name) in the source pane.")
             .buttonStyle(.plain)
             .padding(.leading, CGFloat(depth) * 12)
         }

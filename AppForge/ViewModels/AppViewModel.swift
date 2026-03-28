@@ -27,9 +27,10 @@ final class AppViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var colorPalette: AppColorPalette = .harbor
     @Published var providerSettings = AIProviderSettingsDraft()
-    @Published var aiProviderStatus = AIProviderStatus(
-        configuration: AIProviderConfiguration(kind: .openAI, modelName: AIProviderKind.openAI.defaultModelName, endpointURLString: nil),
-        isReady: false,
+    @Published var aiRoutingStatus = AIRoutingStatus(
+        mode: .single,
+        selectedProvider: .openAI,
+        providerStatuses: [],
         detail: "Configure a provider before planning."
     )
 
@@ -77,7 +78,7 @@ final class AppViewModel: ObservableObject {
             colorPalette = appearanceSettingsStore.loadColorPalette()
             capability = await capabilityDetector.detect()
             providerSettings = aiSettingsStore.loadDraft()
-            aiProviderStatus = agentService.status(for: providerSettings.selectedConfiguration)
+            aiRoutingStatus = agentService.routingStatus(for: providerSettings)
             projects = try workspaceManager.loadProjects()
 
             if messages.isEmpty {
@@ -85,7 +86,7 @@ final class AppViewModel: ObservableObject {
                 AppForge is ready. Configure a real AI provider or a local model, then describe the macOS app you want to build.
 
                 Current capability: \(capability.badge)
-                Planning provider: \(aiProviderStatus.badge) (\(aiProviderStatus.networkLabel.lowercased()))
+                AI routing: \(aiRoutingStatus.badge) (\(aiRoutingStatus.networkLabel.lowercased()))
                 \(scaffoldModeSummary)
                 \(xcodeCodingStatusSummary)
                 """)
@@ -180,8 +181,8 @@ final class AppViewModel: ObservableObject {
         workspaceManager.reveal(workspaceManager.workspaceURL)
     }
 
-    func providerStatus(for draft: AIProviderSettingsDraft) -> AIProviderStatus {
-        agentService.status(for: draft.selectedConfiguration)
+    func routingStatus(for draft: AIProviderSettingsDraft) -> AIRoutingStatus {
+        agentService.routingStatus(for: draft)
     }
 
     func apiKeyHint(for provider: AIProviderKind) -> String {
@@ -201,23 +202,24 @@ final class AppViewModel: ObservableObject {
             let keychainStore = KeychainStore(account: accountName)
             guard !trimmed.isEmpty else {
                 try keychainStore.delete()
-                aiProviderStatus = agentService.status(for: providerSettings.selectedConfiguration)
-                appendAssistant("\(provider.displayName) API key removed. \(aiProviderStatus.detail)")
+                aiRoutingStatus = agentService.routingStatus(for: providerSettings)
+                appendAssistant("\(provider.displayName) API key removed. \(aiRoutingStatus.detail)")
                 return
             }
             try keychainStore.save(trimmed)
-            aiProviderStatus = agentService.status(for: providerSettings.selectedConfiguration)
-            appendAssistant("\(provider.displayName) API key saved to the macOS Keychain. \(aiProviderStatus.detail)")
+            aiRoutingStatus = agentService.routingStatus(for: providerSettings)
+            appendAssistant("\(provider.displayName) API key saved to the macOS Keychain. \(aiRoutingStatus.detail)")
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
     func saveProviderSettings(_ draft: AIProviderSettingsDraft) {
-        providerSettings = draft
-        aiSettingsStore.saveDraft(draft)
-        aiProviderStatus = agentService.status(for: draft.selectedConfiguration)
-        appendAssistant("Planning provider set to \(aiProviderStatus.badge). \(aiProviderStatus.detail)")
+        let normalizedDraft = draft.normalized()
+        providerSettings = normalizedDraft
+        aiSettingsStore.saveDraft(normalizedDraft)
+        aiRoutingStatus = agentService.routingStatus(for: normalizedDraft)
+        appendAssistant("AI routing set to \(aiRoutingStatus.badge). \(aiRoutingStatus.detail)")
     }
 
     func saveColorPalette(_ palette: AppColorPalette) {
@@ -251,9 +253,9 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        aiProviderStatus = agentService.status(for: providerSettings.selectedConfiguration)
-        guard aiProviderStatus.isReady else {
-            appendAssistant(aiProviderStatus.detail)
+        aiRoutingStatus = agentService.routingStatus(for: providerSettings)
+        guard aiRoutingStatus.isReady else {
+            appendAssistant(aiRoutingStatus.detail)
             return
         }
 
@@ -264,13 +266,13 @@ final class AppViewModel: ObservableObject {
             prompt: prompt,
             platform: selectedPlatform,
             capability: capability,
-            configuration: providerSettings.selectedConfiguration
+            settings: providerSettings
         )
-        aiProviderStatus = planningResult.providerStatus
+        aiRoutingStatus = planningResult.routingStatus
 
         appendAssistant("""
-        Planning provider: \(planningResult.providerStatus.badge) (\(planningResult.providerStatus.networkLabel.lowercased())).
-        \(planningResult.providerStatus.detail)
+        AI routing: \(planningResult.routingStatus.badge) (\(planningResult.routingStatus.networkLabel.lowercased())).
+        \(planningResult.routingStatus.detail)
         \(scaffoldModeSummary)
         """)
 
@@ -303,9 +305,9 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        aiProviderStatus = agentService.status(for: providerSettings.selectedConfiguration)
-        guard aiProviderStatus.isReady else {
-            appendAssistant(aiProviderStatus.detail)
+        aiRoutingStatus = agentService.routingStatus(for: providerSettings)
+        guard aiRoutingStatus.isReady else {
+            appendAssistant(aiRoutingStatus.detail)
             return
         }
 
@@ -315,13 +317,13 @@ final class AppViewModel: ObservableObject {
         let planningResult = try await agentService.planRefinement(
             prompt: prompt,
             project: project,
-            configuration: providerSettings.selectedConfiguration
+            settings: providerSettings
         )
-        aiProviderStatus = planningResult.providerStatus
+        aiRoutingStatus = planningResult.routingStatus
 
         appendAssistant("""
-        Planning provider: \(planningResult.providerStatus.badge) (\(planningResult.providerStatus.networkLabel.lowercased())).
-        \(planningResult.providerStatus.detail)
+        AI routing: \(planningResult.routingStatus.badge) (\(planningResult.routingStatus.networkLabel.lowercased())).
+        \(planningResult.routingStatus.detail)
         \(scaffoldModeSummary)
         """)
 

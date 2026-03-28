@@ -125,6 +125,32 @@ enum AIProviderKind: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+/// Controls whether AppForge routes a prompt through one provider or an ensemble of providers.
+enum AIRoutingMode: String, CaseIterable, Identifiable, Codable {
+    case single
+    case ensemble
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .single:
+            return "Single"
+        case .ensemble:
+            return "Ensemble"
+        }
+    }
+
+    var setupSummary: String {
+        switch self {
+        case .single:
+            return "Use one configured provider for planning."
+        case .ensemble:
+            return "Run multiple configured providers in parallel and merge their blueprints into one plan."
+        }
+    }
+}
+
 /// Normalized provider configuration used by the planning service.
 struct AIProviderConfiguration: Equatable {
     let kind: AIProviderKind
@@ -137,6 +163,10 @@ struct AIProviderConfiguration: Equatable {
 
     var trimmedEndpointURLString: String? {
         endpointURLString?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var badge: String {
+        "\(kind.displayName) · \(trimmedModelName.isEmpty ? "No model selected" : trimmedModelName)"
     }
 }
 
@@ -161,9 +191,93 @@ struct AIProviderStatus {
     var badge: String { "\(providerLabel) · \(modelLabel)" }
 }
 
-/// User-editable provider settings persisted in UserDefaults.
+/// Aggregated routing readiness rendered throughout the UI.
+struct AIRoutingStatus {
+    let mode: AIRoutingMode
+    let selectedProvider: AIProviderKind
+    let providerStatuses: [AIProviderStatus]
+    let detail: String
+
+    var isReady: Bool {
+        !providerStatuses.isEmpty && providerStatuses.allSatisfy(\.isReady)
+    }
+
+    var modeLabel: String { mode.displayName }
+
+    var providerLabel: String {
+        switch mode {
+        case .single:
+            return providerStatuses.first?.providerLabel ?? selectedProvider.displayName
+        case .ensemble:
+            return providerStatuses.isEmpty ? "No providers" : "\(providerStatuses.count) providers"
+        }
+    }
+
+    var leadProviderLabel: String {
+        selectedProvider.displayName
+    }
+
+    var contributorSummary: String {
+        let names = providerStatuses.map(\.providerLabel)
+        return names.isEmpty ? "No providers enabled" : names.joined(separator: ", ")
+    }
+
+    var modelLabel: String {
+        switch mode {
+        case .single:
+            return providerStatuses.first?.modelLabel ?? "No model selected"
+        case .ensemble:
+            return providerStatuses.isEmpty ? "No models selected" : "\(providerStatuses.count) active models"
+        }
+    }
+
+    var modelSummary: String {
+        let models = providerStatuses.map(\.badge)
+        return models.isEmpty ? "No models configured" : models.joined(separator: " | ")
+    }
+
+    var networkLabel: String {
+        let labels = Array(Set(providerStatuses.map(\.networkLabel))).sorted()
+        switch labels.count {
+        case 0:
+            return "Unconfigured"
+        case 1:
+            return labels[0]
+        default:
+            return "Hybrid"
+        }
+    }
+
+    var authLabel: String {
+        let labels = Array(Set(providerStatuses.map(\.authLabel))).sorted()
+        switch labels.count {
+        case 0:
+            return "Unconfigured"
+        case 1:
+            return labels[0]
+        default:
+            return "Mixed"
+        }
+    }
+
+    var badge: String {
+        switch mode {
+        case .single:
+            return providerStatuses.first?.badge ?? selectedProvider.displayName
+        case .ensemble:
+            return "Ensemble · \(providerStatuses.count) active"
+        }
+    }
+}
+
+/// User-editable routing and provider settings persisted in UserDefaults.
 struct AIProviderSettingsDraft: Equatable {
+    var routingMode: AIRoutingMode = .single
     var selectedProvider: AIProviderKind = .openAI
+    var openAIEnabled = true
+    var anthropicEnabled = false
+    var ollamaEnabled = false
+    var lmStudioEnabled = false
     var openAIModelName: String = AIProviderKind.openAI.defaultModelName
     var anthropicModelName: String = AIProviderKind.anthropic.defaultModelName
     var ollamaEndpointURLString: String = AIProviderKind.ollama.defaultEndpointURLString ?? ""
@@ -200,13 +314,78 @@ struct AIProviderSettingsDraft: Equatable {
         }
     }
 
+    func isEnabled(_ provider: AIProviderKind) -> Bool {
+        switch provider {
+        case .openAI:
+            return openAIEnabled
+        case .anthropic:
+            return anthropicEnabled
+        case .ollama:
+            return ollamaEnabled
+        case .lmStudio:
+            return lmStudioEnabled
+        }
+    }
+
+    mutating func setEnabled(_ value: Bool, for provider: AIProviderKind) {
+        switch provider {
+        case .openAI:
+            openAIEnabled = value
+        case .anthropic:
+            anthropicEnabled = value
+        case .ollama:
+            ollamaEnabled = value
+        case .lmStudio:
+            lmStudioEnabled = value
+        }
+    }
+
+    var enabledProviders: [AIProviderKind] {
+        AIProviderKind.allCases.filter(isEnabled)
+    }
+
+    var orderedActiveProviders: [AIProviderKind] {
+        let normalizedDraft = normalized()
+        switch normalizedDraft.routingMode {
+        case .single:
+            return [normalizedDraft.selectedProvider]
+        case .ensemble:
+            return [normalizedDraft.selectedProvider] + AIProviderKind.allCases.filter {
+                $0 != normalizedDraft.selectedProvider && normalizedDraft.isEnabled($0)
+            }
+        }
+    }
+
+    var activeConfigurations: [AIProviderConfiguration] {
+        orderedActiveProviders.map(configuration(for:))
+    }
+
     var selectedConfiguration: AIProviderConfiguration {
         configuration(for: selectedProvider)
     }
+
+    /// Normalizes edge cases so the UI and planner always have a stable routing definition.
+    func normalized() -> AIProviderSettingsDraft {
+        var draft = self
+
+        switch draft.routingMode {
+        case .single:
+            draft.setEnabled(true, for: draft.selectedProvider)
+        case .ensemble:
+            let enabledProviders = draft.enabledProviders
+            if enabledProviders.isEmpty {
+                draft.setEnabled(true, for: draft.selectedProvider)
+            } else if !draft.isEnabled(draft.selectedProvider), let firstEnabled = enabledProviders.first {
+                draft.selectedProvider = firstEnabled
+            }
+        }
+
+        return draft
+    }
 }
 
-/// Result of a planning call plus the provider state used to produce it.
+/// Result of a planning call plus the routing state used to produce it.
 struct AgentPlanningResult {
     let blueprint: AgentBlueprint
-    let providerStatus: AIProviderStatus
+    let routingStatus: AIRoutingStatus
 }

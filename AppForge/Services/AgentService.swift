@@ -102,19 +102,65 @@ struct AgentService {
         )
     }
 
+    func routingStatus(for draft: AIProviderSettingsDraft) -> AIRoutingStatus {
+        let normalizedDraft = draft.normalized()
+        let activeConfigurations = normalizedDraft.activeConfigurations
+
+        guard !activeConfigurations.isEmpty else {
+            return AIRoutingStatus(
+                mode: normalizedDraft.routingMode,
+                selectedProvider: normalizedDraft.selectedProvider,
+                providerStatuses: [],
+                detail: "Enable at least one provider before planning."
+            )
+        }
+
+        let providerStatuses = activeConfigurations.map(status(for:))
+        let blockingStatuses = providerStatuses.filter { !$0.isReady }
+
+        if blockingStatuses.isEmpty {
+            let detail: String
+            switch normalizedDraft.routingMode {
+            case .single:
+                detail = providerStatuses[0].detail
+            case .ensemble:
+                let contributorSummary = providerStatuses.map(\.badge).joined(separator: " | ")
+                detail = "Ensemble ready. Lead provider: \(normalizedDraft.selectedProvider.displayName). Contributors: \(contributorSummary)"
+            }
+
+            return AIRoutingStatus(
+                mode: normalizedDraft.routingMode,
+                selectedProvider: normalizedDraft.selectedProvider,
+                providerStatuses: providerStatuses,
+                detail: detail
+            )
+        }
+
+        let blockingDetail = blockingStatuses
+            .map { "\($0.providerLabel): \($0.detail)" }
+            .joined(separator: " ")
+
+        return AIRoutingStatus(
+            mode: normalizedDraft.routingMode,
+            selectedProvider: normalizedDraft.selectedProvider,
+            providerStatuses: providerStatuses,
+            detail: blockingDetail
+        )
+    }
+
     func planInitialApp(
         prompt: String,
         platform: AppPlatform,
         capability: CapabilitySnapshot,
-        configuration: AIProviderConfiguration
+        settings: AIProviderSettingsDraft
     ) async throws -> AgentPlanningResult {
-        let providerStatus = status(for: configuration)
-        guard providerStatus.isReady else {
-            throw AgentServiceError.providerNotReady(providerStatus.detail)
+        let routingStatus = routingStatus(for: settings)
+        guard routingStatus.isReady else {
+            throw AgentServiceError.providerNotReady(routingStatus.detail)
         }
 
-        let blueprint = try await requestBlueprint(
-            configuration: configuration,
+        let blueprints = try await requestBlueprints(
+            configurations: routingStatus.providerStatuses.map(\.configuration),
             systemPrompt: """
             You are the planning layer for AppForge. Return only valid JSON.
             Produce a compact blueprint for a native Apple platform app.
@@ -135,21 +181,26 @@ struct AgentService {
             """
         )
 
-        return AgentPlanningResult(blueprint: blueprint, providerStatus: providerStatus)
+        let blueprint = mergeBlueprints(
+            blueprints,
+            leadProvider: routingStatus.selectedProvider
+        )
+
+        return AgentPlanningResult(blueprint: blueprint, routingStatus: routingStatus)
     }
 
     func planRefinement(
         prompt: String,
         project: GeneratedProject,
-        configuration: AIProviderConfiguration
+        settings: AIProviderSettingsDraft
     ) async throws -> AgentPlanningResult {
-        let providerStatus = status(for: configuration)
-        guard providerStatus.isReady else {
-            throw AgentServiceError.providerNotReady(providerStatus.detail)
+        let routingStatus = routingStatus(for: settings)
+        guard routingStatus.isReady else {
+            throw AgentServiceError.providerNotReady(routingStatus.detail)
         }
 
-        let blueprint = try await requestBlueprint(
-            configuration: configuration,
+        let blueprints = try await requestBlueprints(
+            configurations: routingStatus.providerStatuses.map(\.configuration),
             systemPrompt: """
             You are refining an existing native macOS SwiftUI app. Return only valid JSON.
             Keep the existing appName unchanged.
@@ -170,7 +221,13 @@ struct AgentService {
             """
         )
 
-        return AgentPlanningResult(blueprint: blueprint, providerStatus: providerStatus)
+        let blueprint = mergeBlueprints(
+            blueprints,
+            leadProvider: routingStatus.selectedProvider,
+            fixedAppName: project.name
+        )
+
+        return AgentPlanningResult(blueprint: blueprint, routingStatus: routingStatus)
     }
 
     func discoverModels(for configuration: AIProviderConfiguration) async throws -> [String] {
@@ -275,6 +332,116 @@ struct AgentService {
                 requireLoopback: true
             )
         }
+    }
+
+    private func requestBlueprints(
+        configurations: [AIProviderConfiguration],
+        systemPrompt: String,
+        userPrompt: String
+    ) async throws -> [(AIProviderConfiguration, AgentBlueprint)] {
+        try await withThrowingTaskGroup(of: (Int, AIProviderConfiguration, AgentBlueprint).self) { group in
+            for (index, configuration) in configurations.enumerated() {
+                group.addTask {
+                    let blueprint = try await requestBlueprint(
+                        configuration: configuration,
+                        systemPrompt: systemPrompt,
+                        userPrompt: userPrompt
+                    )
+                    return (index, configuration, blueprint)
+                }
+            }
+
+            var collected: [(Int, AIProviderConfiguration, AgentBlueprint)] = []
+            for try await result in group {
+                collected.append(result)
+            }
+
+            return collected
+                .sorted { $0.0 < $1.0 }
+                .map { ($0.1, $0.2) }
+        }
+    }
+
+    /// Merges several provider blueprints into one deterministic scaffold plan.
+    /// The lead provider remains authoritative for tie-breaking, while features are unioned
+    /// across all contributors so local and cloud models can each add useful shape to the plan.
+    private func mergeBlueprints(
+        _ blueprints: [(AIProviderConfiguration, AgentBlueprint)],
+        leadProvider: AIProviderKind,
+        fixedAppName: String? = nil
+    ) -> AgentBlueprint {
+        guard let leadBlueprint = blueprints.first(where: { $0.0.kind == leadProvider })?.1 ?? blueprints.first?.1 else {
+            return AgentBlueprint(appName: fixedAppName ?? "GeneratedApp", summary: "Generated application scaffold.", features: ["Starter project shell"])
+        }
+
+        let appName = fixedAppName ?? mostCommonAppName(in: blueprints.map(\.1)) ?? leadBlueprint.appName
+        let summary = mergeSummaries(from: blueprints.map(\.1), leadBlueprint: leadBlueprint)
+        let features = mergeFeatures(from: blueprints.map(\.1), leadBlueprint: leadBlueprint)
+
+        return AgentBlueprint(
+            appName: appName,
+            summary: summary,
+            features: features
+        )
+    }
+
+    private func mostCommonAppName(in blueprints: [AgentBlueprint]) -> String? {
+        let counts = Dictionary(grouping: blueprints.map(\.appName), by: { $0 })
+            .mapValues(\.count)
+
+        return counts
+            .sorted { lhs, rhs in
+                if lhs.value == rhs.value {
+                    return lhs.key < rhs.key
+                }
+                return lhs.value > rhs.value
+            }
+            .first?
+            .key
+    }
+
+    private func mergeSummaries(from blueprints: [AgentBlueprint], leadBlueprint: AgentBlueprint) -> String {
+        let distinctSummaries = Array(NSOrderedSet(array: blueprints.map(\.summary))) as? [String] ?? []
+        guard distinctSummaries.count > 1 else {
+            return leadBlueprint.summary
+        }
+
+        let secondaryHighlights = blueprints
+            .dropFirst()
+            .flatMap(\.features)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard let firstHighlight = secondaryHighlights.first else {
+            return leadBlueprint.summary
+        }
+
+        let appendedSummary = "\(leadBlueprint.summary) Expanded with \(firstHighlight.lowercased())."
+        return String(appendedSummary.prefix(280))
+    }
+
+    private func mergeFeatures(from blueprints: [AgentBlueprint], leadBlueprint: AgentBlueprint) -> [String] {
+        var seen = Set<String>()
+        var mergedFeatures: [String] = []
+
+        for feature in leadBlueprint.features + blueprints.flatMap(\.features) {
+            let trimmed = feature.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                continue
+            }
+
+            let dedupeKey = trimmed.lowercased()
+            guard seen.insert(dedupeKey).inserted else {
+                continue
+            }
+
+            mergedFeatures.append(String(trimmed.prefix(120)))
+            if mergedFeatures.count == 5 {
+                break
+            }
+        }
+
+        return mergedFeatures
     }
 
     private func requestAnthropicBlueprint(

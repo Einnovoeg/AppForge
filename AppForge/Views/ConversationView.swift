@@ -14,8 +14,13 @@ struct ConversationView: View {
             VStack(spacing: 16) {
                 HStack(spacing: 10) {
                     InfoPill(title: "Phase", value: viewModel.buildPhase.label, tint: phaseTint)
-                    InfoPill(title: "Provider", value: viewModel.aiProviderStatus.modelLabel, tint: theme.accent)
+                    InfoPill(title: "Routing", value: viewModel.aiRoutingStatus.modeLabel, tint: theme.accent)
+                    InfoPill(title: "Models", value: viewModel.aiRoutingStatus.modelLabel, tint: theme.glow)
                     InfoPill(title: "Target", value: viewModel.selectedPlatform.displayName, tint: theme.glow)
+                }
+
+                if !viewModel.aiRoutingStatus.providerStatuses.isEmpty {
+                    providerBadgeRow
                 }
 
                 transcript
@@ -66,6 +71,7 @@ struct ConversationView: View {
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
                             .strokeBorder(Color.white.opacity(0.20), lineWidth: 1)
                     }
+                    .help("Describe the app you want to build or the refinement you want applied to the selected project.")
                     .disabled(viewModel.isBusy)
 
                 if viewModel.composeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -98,9 +104,24 @@ struct ConversationView: View {
                 } label: {
                     Label("Send Prompt", systemImage: "arrow.up.circle.fill")
                 }
+                .help("Send the current prompt to AppForge for planning or refinement.")
                 .buttonStyle(AppActionButtonStyle(emphasized: true))
                 .keyboardShortcut(.return)
                 .disabled(viewModel.composeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isBusy)
+            }
+        }
+    }
+
+    private var providerBadgeRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(viewModel.aiRoutingStatus.providerStatuses, id: \.badge) { status in
+                    Text(status.badge)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background((status.isReady ? theme.accent : .red).opacity(0.14), in: Capsule())
+                }
             }
         }
     }
@@ -112,7 +133,7 @@ struct ConversationView: View {
                     .controlSize(.small)
             }
 
-            Text(viewModel.aiProviderStatus.networkLabel)
+            Text(viewModel.aiRoutingStatus.networkLabel)
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)

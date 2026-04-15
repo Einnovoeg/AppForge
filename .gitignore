@@ -1,26 +1,16 @@
-# macOS
+# Xcode & Swift
 .DS_Store
-
-# Xcode user data
-xcuserdata/
-*.xcuserstate
-*.xccheckout
-*.xcscmblueprint
-
-# Xcode build output
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 DerivedData/
 Build/
-*.app
-dist/
 
-# SwiftPM
-.build/
-.swiftpm/
+# AppForge Specific
+~/AppForge/
+AppForgeSpec.json
+session*.md
+AGENTS.md
 
-# Editor and shell noise
-*.swp
-*.swo
-*~
-
-# Local verification scratch
-scratch/
+# System/Cache
+.Trash/
+.localized

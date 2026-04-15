@@ -2,10 +2,12 @@ import AppKit
 import Foundation
 
 /// Owns the portable on-disk workspace used for generated projects and AppForge metadata.
+/// It ensures all generated files are contained within a single, predictable directory in the user's home folder.
 struct WorkspaceManager {
     private let fileManager = FileManager.default
     private let workspaceSecurity = WorkspaceSecurity()
 
+    /// The root directory of the AppForge workspace (typically ~/AppForge).
     var workspaceURL: URL {
         fileManager.homeDirectoryForCurrentUser.appendingPathComponent("AppForge", isDirectory: true)
     }
@@ -26,6 +28,7 @@ struct WorkspaceManager {
         workspaceURL.appendingPathComponent("Config", isDirectory: true)
     }
 
+    /// Ensures that all required AppForge directories exist and have secure permissions.
     func bootstrapDirectories() throws {
         // Keep every generated artifact under one user-owned directory so cleanup is predictable.
         for url in [workspaceURL, projectsURL, cacheURL, logsURL, configURL] {
@@ -43,6 +46,7 @@ struct WorkspaceManager {
         return projectsURL.appendingPathComponent("\(name)-\(stamp)", isDirectory: true)
     }
 
+    /// Scans the projects directory for valid AppForge project roots and loads their metadata.
     func loadProjects() throws -> [GeneratedProject] {
         guard fileManager.fileExists(atPath: projectsURL.path) else {
             return []
@@ -83,6 +87,7 @@ struct WorkspaceManager {
         .sorted { $0.updatedAt > $1.updatedAt }
     }
 
+    /// Recursively builds a tree of files and directories for a given project, filtering out ignored paths.
     func loadFileTree(for project: GeneratedProject) -> [FileTreeNode] {
         guard let projectRootURL = try? workspaceSecurity.validatedProjectRootURL(project.rootURL) else {
             return []

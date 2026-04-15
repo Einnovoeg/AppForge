@@ -1,7 +1,10 @@
 import Foundation
 
 /// Detects the local Apple tooling tier without doing heavyweight work during app launch.
+/// This informs AppForge whether it can perform full Xcode builds, only Swift compilations, 
+/// or if the system is lacking basic development tools.
 struct CapabilityDetector {
+    /// Probes the system for Xcode, Swift, xcodebuild, and XcodeGen.
     func detect() async -> CapabilitySnapshot {
         async let xcodeSelect = ProcessRunner.run(executable: "/usr/bin/xcode-select", arguments: ["-p"])
         async let swiftVersion = ProcessRunner.run(executable: "/usr/bin/swift", arguments: ["--version"])

@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 /// Coordinates the AppForge shell, generation workflow, and persistent UI state.
+/// This is the central hub of the application, managing the conversation history,
+/// project selection, build orchestration, and provider configuration.
 final class AppViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var projects: [GeneratedProject] = []
@@ -69,6 +71,7 @@ final class AppViewModel: ObservableObject {
         selectedProject?.name ?? "No project selected"
     }
 
+    /// Initializes the workspace and loads persistent settings and existing projects.
     func bootstrapIfNeeded() async {
         guard !hasBootstrapped else { return }
         hasBootstrapped = true
@@ -96,6 +99,7 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    /// Processes the user's input, either creating a new project or refining the selected one.
     func sendCurrentPrompt() async {
         let prompt = composeText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty, !isBusy else { return }
@@ -231,6 +235,7 @@ final class AppViewModel: ObservableObject {
         try await agentService.discoverModels(for: configuration)
     }
 
+    /// Handles the high-level workflow for creating a new project: planning, scaffolding, and building.
     private func createProject(from prompt: String) async throws {
         guard selectedPlatform.isAvailableInCurrentMVP else {
             appendAssistant("\(selectedPlatform.displayName) generation is planned, but this MVP currently scaffolds macOS apps only.")
@@ -293,6 +298,7 @@ final class AppViewModel: ObservableObject {
         await runBuild(for: project, shouldLaunch: false)
     }
 
+    /// Handles the high-level workflow for refining a project: planning, updating files, and rebuilding.
     private func refine(project: GeneratedProject, prompt: String) async throws {
         if let builtInBlueprint = builtInRecipeService.refinementBlueprint(for: prompt, project: project) {
             buildPhase = .planning

@@ -12,7 +12,10 @@ enum BuildRunnerError: LocalizedError {
 }
 
 /// Wraps the local XcodeGen and xcodebuild pipeline used for generated projects.
+/// This service handles the end-to-end build process: generating the project file, 
+/// compiling the source, and locating the resulting app bundle.
 enum BuildRunner {
+    /// Builds the generated project from source using XcodeGen and xcodebuild.
     static func build(project: GeneratedProject) async throws -> BuildRunResult {
         let workspaceSecurity = WorkspaceSecurity()
         let projectRootURL = try workspaceSecurity.validatedProjectRootURL(project.rootURL)
@@ -59,6 +62,7 @@ enum BuildRunner {
         )
     }
 
+    /// Launches the built app bundle using the system's `open` command.
     static func launch(project: GeneratedProject) async throws -> BuildRunResult {
         let workspaceSecurity = WorkspaceSecurity()
         let projectRootURL = try workspaceSecurity.validatedProjectRootURL(project.rootURL)

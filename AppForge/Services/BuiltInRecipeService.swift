@@ -1,6 +1,8 @@
 import Foundation
 
 /// Built-in generators that can produce a real working app without calling an external model.
+/// These are used for "hero" recipes that demonstrate AppForge's full capability of generating
+/// functional application logic rather than just generic scaffolds.
 enum BuiltInRecipeKind {
     case sudoku
 
@@ -23,6 +25,7 @@ enum BuiltInRecipeKind {
 }
 
 /// Maps a recognized prompt to a first-party AppForge blueprint.
+/// This allows AppForge to bypass AI planning for known, high-quality recipes.
 struct BuiltInRecipeService {
     func initialBlueprint(for prompt: String, platform: AppPlatform) -> AgentBlueprint? {
         guard platform == .macOS,

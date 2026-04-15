@@ -1,0 +1,2 @@
+28dc44bcee53d5e56eaaa62d3fedd13f87fbc847565498d8df1867c388466ac5  /Volumes/Mac Stick/Projects/AppForge/dist/0.2.0/AppForge-0.2.0-macos-arm64.zip
+186ef5c3c4732d7a2144e5779a44b5c7c90944731bba0effbce9d6abf91dac50  /Volumes/Mac Stick/Projects/AppForge/dist/0.2.0/AppForge-0.2.0.dmg

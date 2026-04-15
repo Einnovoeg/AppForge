@@ -1,6 +1,8 @@
 import Foundation
 
 /// Centralized validation for files and folders inside AppForge's managed workspace.
+/// This ensures that AppForge only interacts with files within its own designated directories,
+/// preventing arbitrary file system access and mitigating potential directory traversal attacks.
 enum WorkspaceSecurityError: LocalizedError {
     case unmanagedProjectRoot
     case inaccessibleProjectItem
@@ -37,6 +39,7 @@ struct WorkspaceSecurity {
         try fileManager.setAttributes(secureDirectoryAttributes, ofItemAtPath: url.path)
     }
 
+    /// Verifies that a given URL is a valid project root directory within the AppForge workspace.
     func validatedProjectRootURL(_ projectRootURL: URL) throws -> URL {
         let normalizedProjectsURL = normalizedFileURL(projectsURL)
         let normalizedProjectRootURL = normalizedFileURL(projectRootURL)
@@ -53,6 +56,8 @@ struct WorkspaceSecurity {
         return normalizedProjectRootURL
     }
 
+    /// Validates that a file or directory exists within a project root and meets safety criteria.
+    /// Checks for symbolic links (disallowed), file size limits, and basic item type (file vs directory).
     func validatedProjectItemURL(
         _ itemURL: URL,
         withinProjectRoot projectRootURL: URL,

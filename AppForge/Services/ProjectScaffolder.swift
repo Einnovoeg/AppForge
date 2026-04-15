@@ -13,10 +13,13 @@ enum ProjectScaffolderError: LocalizedError {
 }
 
 /// Writes generated project files for either generic shells or built-in recipes like Sudoku.
+/// It manages the filesystem layout, applies security permissions to project directories,
+/// and hydrates templates with project-specific metadata.
 struct ProjectScaffolder {
     private let fileManager = FileManager.default
     private let workspaceSecurity = WorkspaceSecurity()
 
+    /// Orchestrates the creation of a new project from an AI-generated blueprint.
     func createProject(
         from blueprint: AgentBlueprint,
         prompt: String,
@@ -54,6 +57,8 @@ struct ProjectScaffolder {
         return GeneratedProject(rootURL: projectRoot, spec: spec)
     }
 
+    /// Updates an existing project based on a refinement blueprint.
+    /// This process overrides the project summary and features, and appends the refinement prompt to the history.
     func refineProject(
         _ project: GeneratedProject,
         with blueprint: AgentBlueprint,
@@ -71,6 +76,8 @@ struct ProjectScaffolder {
         return GeneratedProject(rootURL: project.rootURL, spec: updatedSpec)
     }
 
+    /// Internal helper to write the actual source files and metadata to the project root.
+    /// It selects the appropriate template (generic or recipe-based) and performs string replacement.
     private func writeProjectFiles(spec: GeneratedProjectSpec, to rootURL: URL) throws {
         let sourceDirectory = rootURL
             .appendingPathComponent("Sources", isDirectory: true)

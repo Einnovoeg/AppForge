@@ -19,6 +19,8 @@ enum ProcessRunnerError: LocalizedError {
 
 /// Lightweight async process wrapper used by tooling detection and local build steps.
 enum ProcessRunner {
+    /// Executes a system command asynchronously and captures its output.
+    /// Uses `Process` directly to avoid shell injection vulnerabilities.
     static func run(
         executable: String,
         arguments: [String] = [],
@@ -75,7 +77,8 @@ enum ProcessRunner {
         }
     }
 
-    /// Avoid leaking arbitrary parent-process environment variables into build tools.
+    /// Filters the current process environment to a minimal set of safe, necessary variables.
+    /// This prevents leaking sensitive environment variables or conflicting configurations into subprocesses.
     private static func safeBaseEnvironment() -> [String: String] {
         let inherited = ProcessInfo.processInfo.environment
         let allowedKeys: Set<String> = [

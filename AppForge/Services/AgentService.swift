@@ -37,9 +37,12 @@ enum AgentServiceError: LocalizedError {
 }
 
 /// Handles provider readiness checks, model discovery, and compact planning requests.
+/// This service acts as the orchestration layer between AppForge's UI and the various AI backends (OpenAI, Anthropic, Ollama, LM Studio).
 struct AgentService {
+    /// Limit response size to prevent memory exhaustion from hallucinated oversized JSON.
     private static let maxResponseBytes = 1_048_576
 
+    /// Verifies if a provider that requires an API key has one stored in the macOS Keychain.
     func hasAPIKey(for provider: AIProviderKind) -> Bool {
         guard provider.keychainAccountName != nil else {
             return false
@@ -50,6 +53,8 @@ struct AgentService {
         return !value.isEmpty
     }
 
+    /// Validates the current configuration of a provider.
+    /// Checks for necessary API keys, valid loopback URLs for local models, and well-formed model names.
     func status(for configuration: AIProviderConfiguration) -> AIProviderStatus {
         let provider = configuration.kind
 
@@ -102,6 +107,8 @@ struct AgentService {
         )
     }
 
+    /// Evaluates the overall readiness of the current routing setup.
+    /// In 'Single' mode, it checks the selected provider. In 'Ensemble' mode, it checks all enabled providers.
     func routingStatus(for draft: AIProviderSettingsDraft) -> AIRoutingStatus {
         let normalizedDraft = draft.normalized()
         let activeConfigurations = normalizedDraft.activeConfigurations
@@ -148,6 +155,8 @@ struct AgentService {
         )
     }
 
+    /// Requests an initial app blueprint based on a user prompt.
+    /// If ensemble routing is enabled, multiple providers are queried and their results merged.
     func planInitialApp(
         prompt: String,
         platform: AppPlatform,
@@ -189,6 +198,8 @@ struct AgentService {
         return AgentPlanningResult(blueprint: blueprint, routingStatus: routingStatus)
     }
 
+    /// Requests a refinement to an existing project.
+    /// The existing project's metadata is passed to the AI to ensure consistency in the refinement.
     func planRefinement(
         prompt: String,
         project: GeneratedProject,
